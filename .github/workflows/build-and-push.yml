@@ -1,0 +1,69 @@
+# ============================================================
+# CI/CD: build the Postgres image with the schema and push to Docker Hub.
+# Resulting image:  docker.io/makbuk/autopostgres-image:latest
+# ============================================================
+
+name: Build and Push Postgres Image
+
+# --- When to run the pipeline ---
+on:
+  push:
+    branches: [ main ]          # on every push to main
+    paths:                      # ...but ONLY if one of these changed:
+      - 'migrations/**'         #   - SQL schema
+      - 'Dockerfile'            #   - the Dockerfile itself
+      - '.github/workflows/**'  #   - the pipeline itself
+  workflow_dispatch:            # + manual trigger from the Actions tab
+
+# --- Workflow-level environment variables ---
+env:
+  # Full image name on Docker Hub: <namespace>/<repository>
+  IMAGE_NAME: makbuk/autopostgres-image
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out the repository onto the runner.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Enable Buildx — the advanced Docker builder (needed for caching).
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 3. Log in to Docker Hub.
+      #    REQUIRED: add two secrets in the GitHub repository:
+      #    Settings -> Secrets and variables -> Actions -> New repository secret
+      #      DOCKERHUB_USERNAME = makbuk
+      #      DOCKERHUB_TOKEN    = Access Token from Docker Hub
+      #                           (Account Settings -> Security -> New Access Token,
+      #                            Read & Write permissions). This is NOT the account password!
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 4. Generate image tags and labels.
+      #    Produces a single tag: latest.
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+
+      # 5. Build the image and push it to Docker Hub.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .                              # build context = repo root
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha                    # cache layers between runs
+          cache-to: type=gha,mode=max

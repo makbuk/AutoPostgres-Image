@@ -1,0 +1,4 @@
+# Local Postgres data if you mount a volume
+pgdata/
+*.env
+.env

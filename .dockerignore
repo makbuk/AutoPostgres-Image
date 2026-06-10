@@ -1,0 +1,6 @@
+# Keep the build context lean — speeds up build and shrinks the image.
+.git
+.github
+README.md
+*.md
+.gitignore

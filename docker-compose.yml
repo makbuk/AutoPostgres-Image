@@ -1,0 +1,25 @@
+# Convenient way to run the built image locally for testing.
+# Run:  docker compose up --build
+services:
+  db:
+    build: .                       # build from the local Dockerfile
+    image: autopostgres:local
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: secret    # fine for local; use secrets in production
+      POSTGRES_DB: appdb
+    ports:
+      # host:container. We use 5433 on the host because 5432 is often
+      # taken by a local system PostgreSQL. Inside the container it is always 5432.
+      - "5432:5432"
+    volumes:
+      # Persist the Postgres data directory in a named volume so data
+      # survives `docker compose down` and container recreation.
+      # NOTE: init scripts in migrations/ run ONLY on first creation of
+      # this volume (when the data dir is empty). To wipe everything and
+      # re-seed the schema from scratch, run:  docker compose down -v
+      - pgdata:/var/lib/postgresql/data
+
+# Named volumes managed by Docker, stored independently of the container.
+volumes:
+  pgdata:
